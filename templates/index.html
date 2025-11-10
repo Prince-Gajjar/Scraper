@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSM Scraper</title>
+  <style>
+    body {
+      background: #0e1623;
+      font-family: 'Inter', sans-serif;
+      color: #e6eef8;
+      display: flex;
+      justify-content: center;
+      padding: 40px;
+    }
+    .card {
+      background: #111c2b;
+      padding: 30px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+    h2 {
+      text-align: center;
+      color: #00b3ff;
+    }
+    input, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #1b2838;
+      color: #fff;
+      font-size: 15px;
+    }
+    button {
+      background: #00b3ff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background: #009de0; }
+    .checkbox {
+      margin-top: 10px;
+      color: #8ca3b8;
+      font-size: 14px;
+    }
+    .progress-container {
+      margin-top: 15px;
+      background: #1b2838;
+      border-radius: 6px;
+      height: 10px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 10px;
+      background: #00b3ff;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .status {
+      text-align: center;
+      margin-top: 10px;
+      color: #8ca3b8;
+    }
+    .download-btn {
+      display: none;
+      text-align: center;
+      text-decoration: none;
+      background: #008cfa;
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 15px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>OpenStreetMap Scraper</h2>
+    <form id="jobForm">
+      <input name="keyword" placeholder="Keyword (e.g. restaurant)" required />
+      <input name="city" placeholder="City (e.g. Ahmedabad)" required />
+      <input name="max_results" type="number" value="100" min="1" max="2000" />
+      <label class="checkbox">
+        <input type="checkbox" name="agree" />
+        I confirm I will not use this to break site rules
+      </label>
+      <button type="submit">Start Scraping</button>
+    </form>
+
+    <div class="progress-container" style="display:none;">
+      <div class="progress-bar"></div>
+    </div>
+
+    <div class="status"></div>
+    <a id="downloadLink" class="download-btn">Download CSV</a>
+  </div>
+
+  <script>
+    const form = document.getElementById('jobForm');
+    const progressContainer = document.querySelector('.progress-container');
+    const progressBar = document.querySelector('.progress-bar');
+    const statusEl = document.querySelector('.status');
+    const downloadLink = document.getElementById('downloadLink');
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      statusEl.textContent = 'Starting scrape...';
+      downloadLink.style.display = 'none';
+
+      const res = await fetch('/create_job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const j = await res.json();
+      if (j.error) return (statusEl.textContent = 'Error: ' + j.error);
+
+      pollStatus(j.job_id);
+    });
+
+    async function pollStatus(jobId) {
+      const timer = setInterval(async () => {
+        const res = await fetch('/status/' + jobId);
+        const j = await res.json();
+        const count = j.count || 0;
+        progressBar.style.width = Math.min(100, count) + '%';
+        statusEl.textContent = `Status: ${j.status.toUpperCase()} • Found ${count}`;
+
+        if (j.status === 'finished') {
+          clearInterval(timer);
+          statusEl.textContent = `✅ Completed! Found ${count} places.`;
+          progressBar.style.width = '100%';
+          if (j.download) {
+            downloadLink.href = j.download;
+            downloadLink.style.display = 'block';
+          }
+        }
+
+        if (j.status === 'failed') {
+          clearInterval(timer);
+          statusEl.textContent = '❌ Failed: ' + (j.error || 'Unknown error');
+        }
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
