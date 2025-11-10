@@ -1,0 +1,12 @@
+# Ignore build artifacts
+build/
+dist/
+__pycache__/
+*.spec
+
+# Python virtual environment
+venv/
+.env/
+
+# Output files
+output/*.csv
