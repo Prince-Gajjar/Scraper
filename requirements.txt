@@ -6,3 +6,7 @@ webdriver-manager
 python-dotenv
 Scraper
 Requests
+python-dotenv
+beautifulsoup4
+lxml
+tqdm
